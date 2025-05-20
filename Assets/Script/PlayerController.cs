@@ -16,6 +16,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float speed;
     [SerializeField] private float jumpForce;
     [SerializeField] private float attackForce;
+    [SerializeField] private float attackTime = 0.5f;
     [SerializeField] private float score;
     [SerializeField] private TextMeshProUGUI scoreText;
 
@@ -32,12 +33,15 @@ public class PlayerController : MonoBehaviour
     void Update()
     {
         Movement();
+        // attack
+        if (Input.GetKeyDown(KeyCode.Return) && state != State.attack)  // prevent double attack
+        {
+            StartCoroutine(Attack());
+        }
+
         AnimationState();
         animator.SetInteger("state", (int)state);   // change animator parameter
-        //if (state != State.attack)
-        //{
 
-        //}
     }
 
     // Collect items
@@ -75,6 +79,38 @@ public class PlayerController : MonoBehaviour
         state = State.jumping;
     }
 
+    private IEnumerator Attack()
+    {
+        state = State.attack;
+
+        yield return new WaitForSeconds(attackTime); // wait for attack animation end
+
+        if (!colli2D.IsTouchingLayers(ground))  // still in jumping / falling stage 
+        {
+            if (rigidBody2D.velocity.y >= 0.1f)
+            {
+                state = State.jumping;
+            }
+            else
+            {
+                state = State.falling;
+            }
+        }
+        else    // touch the ground
+        {
+            if (Mathf.Abs(rigidBody2D.velocity.x) > 2f)
+            {
+                state = State.running;
+            }
+            else
+            {
+                state = State.idle;
+            }
+        }
+
+
+    }
+
     private void AnimationState()
     {
         if (state == State.jumping)
@@ -93,7 +129,7 @@ public class PlayerController : MonoBehaviour
         }
         else if (state == State.attack)
         {
-            // do attack move
+            // play attack animation
         }
         else if (Mathf.Abs(rigidBody2D.velocity.x) > 2f)    //running to left/right
         {
