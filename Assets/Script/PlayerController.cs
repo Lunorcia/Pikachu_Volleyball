@@ -11,12 +11,16 @@ public class PlayerController : MonoBehaviour
 
     private enum State { idle, running, jumping, falling, attack};
     private State state = State.idle;
+    private bool isTouched = false;
 
     [SerializeField] private LayerMask ground;
     [SerializeField] private float speed;
     [SerializeField] private float jumpForce;
+    [SerializeField] private float compensationJumpForce;
     [SerializeField] private float pushForce = 5f;
-    [SerializeField] private float attackForce = 10f;
+
+    [SerializeField] private float normalPushForce = 5f;
+    [SerializeField] private float attackPushForce = 10f;
     [SerializeField] private float attackTime = 0.5f;
     [SerializeField] private float score;
     [SerializeField] private TextMeshProUGUI scoreText;
@@ -118,34 +122,64 @@ public class PlayerController : MonoBehaviour
         
         ContactPoint2D contact = collision.GetContact(0);
         Rigidbody2D ballRb = collision.rigidbody;
+        Vector2 pushDir = new Vector2(transform.localScale.x * pushForce, 1f).normalized;
 
         if (state == State.attack)          // attack to push the ball
         {
             Debug.Log("attack!");
-            Vector2 forceDir = collision.GetContact(0).normal * (-1f);
-            collision.rigidbody.AddForce(forceDir * attackForce, ForceMode2D.Impulse);
+
+            ballRb.AddForce(pushDir * attackPushForce, ForceMode2D.Impulse);
 
             // debug 看的 (畫法向量)
-            Debug.DrawRay(contact.point, contact.normal, Color.red, 1f);
+            Debug.DrawRay(contact.point, contact.normal, Color.red, 1.5f);
         }
-        else if (contact.normal.y < -0.5f)  // touch the ball from the bottom
+        else if (contact.normal.y < -0.5f)
         {
             Debug.Log("touching ball");
-            float xDir = Input.GetAxisRaw("Horizontal");
-            Vector2 forceDir = new Vector2(xDir == 0 ? transform.localScale.x : xDir, 1f).normalized;   // 根據角色面向哪邊決定頂球方向
 
-            ballRb.velocity = Vector2.zero;
-            ballRb.AddForce(forceDir * pushForce, ForceMode2D.Impulse); // add pushing force to the ball (weaker than attacking force)
-
-            if (state == State.jumping) 
-            {
-                // 補償向上速度，避免被球重量往下壓造成跳躍高度減低
-                rigidBody2D.velocity = new Vector2(rigidBody2D.velocity.x, Mathf.Max(rigidBody2D.velocity.y, jumpForce * 0.7f));
-            }
+            ballRb.AddForce(pushDir * normalPushForce, ForceMode2D.Impulse);
 
             // debug 看的 (畫法向量)
-            Debug.DrawRay(contact.point, contact.normal, Color.green, 1f);
+            Debug.DrawRay(contact.point, contact.normal, Color.green, 1.5f);
         }
+        // 補償向上速度，避免被球重量往下壓造成跳躍高度減低
+        if (state == State.jumping && isTouched == false)
+        {
+            rigidBody2D.velocity = new Vector2(rigidBody2D.velocity.x, Mathf.Max(rigidBody2D.velocity.y, compensationJumpForce));
+            isTouched = true;   // prevent double compensation
+        }
+
+
+
+
+
+        //if (state == State.attack)          // attack to push the ball
+        //{
+        //    Debug.Log("attack!");
+        //    Vector2 forceDir = collision.GetContact(0).normal * (-1f);
+        //    collision.rigidbody.AddForce(forceDir * attackPushForce, ForceMode2D.Impulse);
+
+        //    // debug 看的 (畫法向量)
+        //    Debug.DrawRay(contact.point, contact.normal, Color.red, 1f);
+        //}
+        //else if (contact.normal.y < -0.5f)  // touch the ball from the bottom
+        //{
+        //    Debug.Log("touching ball");
+        //    float xDir = Input.GetAxisRaw("Horizontal");
+        //    Vector2 forceDir = new Vector2(xDir == 0 ? transform.localScale.x : xDir, 1f).normalized;   // 根據角色面向哪邊決定頂球方向
+
+        //    ballRb.velocity = Vector2.zero;
+        //    ballRb.AddForce(forceDir * pushForce, ForceMode2D.Impulse); // add pushing force to the ball (weaker than attacking force)
+
+        //    if (state == State.jumping)
+        //    {
+        //        // 補償向上速度，避免被球重量往下壓造成跳躍高度減低
+        //        rigidBody2D.velocity = new Vector2(rigidBody2D.velocity.x, Mathf.Max(rigidBody2D.velocity.y, jumpForce * 0.7f));
+        //    }
+
+        //    // debug 看的 (畫法向量)
+        //    Debug.DrawRay(contact.point, contact.normal, Color.green, 1f);
+        //}
     }
 
     private void AnimationState()
@@ -155,6 +189,7 @@ public class PlayerController : MonoBehaviour
             if (rigidBody2D.velocity.y < 0.1f)  // from jump to fall
             {
                 state = State.falling;
+                isTouched = false;
             }
         }
         else if (state == State.falling)
