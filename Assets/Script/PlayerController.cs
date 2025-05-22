@@ -122,12 +122,15 @@ public class PlayerController : MonoBehaviour
         
         ContactPoint2D contact = collision.GetContact(0);
         Rigidbody2D ballRb = collision.rigidbody;
+        BallController ballCtrl = collision.gameObject.GetComponent<BallController>();
         Vector2 pushDir = new Vector2(transform.localScale.x * pushForce, 1f).normalized;
 
         if (state == State.attack)          // attack to push the ball
         {
             Debug.Log("attack!");
 
+            ballCtrl?.OnAttacked(); // increase ball's velocity limit when attacking
+            pushDir = new Vector2(transform.localScale.x * pushForce * 1.5f, 1f).normalized;
             ballRb.AddForce(pushDir * attackPushForce, ForceMode2D.Impulse);
 
             // debug 看的 (畫法向量)
@@ -137,10 +140,15 @@ public class PlayerController : MonoBehaviour
         {
             Debug.Log("touching ball");
 
+            ballCtrl?.OnTouched();  // reset ball's velocity limit to normal
             ballRb.AddForce(pushDir * normalPushForce, ForceMode2D.Impulse);
 
             // debug 看的 (畫法向量)
             Debug.DrawRay(contact.point, contact.normal, Color.green, 1.5f);
+        }
+        else
+        {
+            ballCtrl?.OnTouched();  // reset ball's velocity limit to normal
         }
         // 補償向上速度，避免被球重量往下壓造成跳躍高度減低
         if (state == State.jumping && isTouched == false)
@@ -189,7 +197,7 @@ public class PlayerController : MonoBehaviour
             if (rigidBody2D.velocity.y < 0.1f)  // from jump to fall
             {
                 state = State.falling;
-                isTouched = false;
+                isTouched = false;  // reset ball touching detect
             }
         }
         else if (state == State.falling)
