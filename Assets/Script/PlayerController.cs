@@ -9,9 +9,10 @@ public class PlayerController : MonoBehaviour
     private Animator animator;
     private Collider2D colli2D;
 
-    private enum State { idle, running, jumping, falling, attack};
+    private enum State { idle, running, jumping, falling, attack };
     private State state = State.idle;
     private bool isTouched = false;
+    private bool isReadyWaiting = false;
 
     [SerializeField] private LayerMask ground;
     [SerializeField] private float speed;
@@ -37,6 +38,13 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if (isReadyWaiting)
+        {
+            // prevent animation stuck in inappropriate state while state ready
+            animator.SetInteger("state", (int)state);   // change animator parameter
+            return;
+        }
+
         Movement();
         // attack
         if (Input.GetKeyDown(KeyCode.Return) && state != State.attack)  // prevent double attack
@@ -52,7 +60,7 @@ public class PlayerController : MonoBehaviour
     // Collect items
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        
+
     }
 
     private void Movement()
@@ -116,10 +124,10 @@ public class PlayerController : MonoBehaviour
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        if (!collision.gameObject.CompareTag("Ball")) 
+        if (!collision.gameObject.CompareTag("Ball"))
             return;
 
-        
+
         ContactPoint2D contact = collision.GetContact(0);
         Rigidbody2D ballRb = collision.rigidbody;
         BallController ballCtrl = collision.gameObject.GetComponent<BallController>();
@@ -158,9 +166,6 @@ public class PlayerController : MonoBehaviour
         }
 
 
-
-
-
         //if (state == State.attack)          // attack to push the ball
         //{
         //    Debug.Log("attack!");
@@ -188,6 +193,19 @@ public class PlayerController : MonoBehaviour
         //    // debug 看的 (畫法向量)
         //    Debug.DrawRay(contact.point, contact.normal, Color.green, 1f);
         //}
+    }
+
+    public void ReadyReset(bool isWaiting)
+    {
+        isReadyWaiting = isWaiting;
+        if (isWaiting)
+        {
+            // prevent animation stuck in inappropriate state
+            state = State.idle;
+            rigidBody2D.bodyType = RigidbodyType2D.Static;
+        }
+        else
+            rigidBody2D.bodyType = RigidbodyType2D.Dynamic;
     }
 
     private void AnimationState()

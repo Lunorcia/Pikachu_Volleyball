@@ -37,6 +37,22 @@ public class BallController : MonoBehaviour
         }
     }
 
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        GameManager gm = FindObjectOfType<GameManager>();
+        if (gm == null || gm.IsResetting())
+            return;
+
+        if ( collision.gameObject.CompareTag("LeftGround"))
+        {
+            FindObjectOfType<GameManager>().AddScore(true); // touch left groud
+        }
+        else if(collision.gameObject.CompareTag("RightGround"))
+        {
+            FindObjectOfType<GameManager>().AddScore(false);    // touch right ground
+        }
+    }
+
     // increase ball's velocity limit when attacking
     public void OnAttacked()
     {
