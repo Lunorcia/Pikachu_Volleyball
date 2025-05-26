@@ -8,9 +8,12 @@ using UnityEngine.SceneManagement;
 public class NetworkManager : MonoBehaviourPunCallbacks
 {
     public static NetworkManager Instance;
+    public bool isPublicMatch = false;
 
     void Awake()
     {
+        PhotonNetwork.AutomaticallySyncScene = true;
+
         // Ensure only exist a NetworkManager in different scene
         if (Instance == null)
         {
@@ -42,13 +45,32 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     {
         Debug.Log("Connected to Photon Master Server");
         PhotonNetwork.JoinLobby();
+        Debug.Log("連上 Master Server 準備加入 Lobby");
     }
 
     // join lobby
     public override void OnJoinedLobby()
     {
         Debug.Log("Joined Lobby");
-        PhotonNetwork.JoinRandomRoom();
+
+        if (isPublicMatch)
+        {
+            PhotonNetwork.JoinRandomRoom();
+        }
+        else 
+        {
+            string roomName = FindObjectOfType<MainMenuUI>().GetPwd();
+            if (!string.IsNullOrEmpty(roomName))
+            {
+                Debug.Log($"[PrivateMatch] JoinOrCreateRoom: {roomName}");
+                RoomOptions options = new RoomOptions { MaxPlayers = 2 };
+                PhotonNetwork.JoinOrCreateRoom(roomName, options, TypedLobby.Default);
+            }
+            else
+            {
+                Debug.Log("找不到對應房間");
+            }
+        }
     }
 
     public override void OnJoinRandomFailed(short returnCode, string message)
@@ -60,25 +82,28 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     public override void OnJoinedRoom()
     {
         Debug.Log("Joined Room");
+    }
 
-        // Switch to the GameScene
-        if (SceneManager.GetActiveScene().name != "GameScene")
+    public override void OnPlayerEnteredRoom(Player newPlayer)
+    {
+        Debug.Log($"Player entered room: {newPlayer.NickName}, current count = {PhotonNetwork.CurrentRoom.PlayerCount}");
+
+        // 房間滿 2 人開始遊戲
+        if (PhotonNetwork.CurrentRoom.PlayerCount == 2)
         {
-            SceneManager.LoadScene("GameScene");
-        }
-        else
-        {
-            SpawnPlayer();
+            PhotonNetwork.LoadLevel("GameScene"); // load scene
         }
     }
 
-    protected new void OnEnable()
+    public override void OnEnable()
     {
+        base.OnEnable();
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
-    protected new void OnDisable()
+    public override void OnDisable()
     {
+        base.OnDisable();
         SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
@@ -92,7 +117,8 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
     void SpawnPlayer()
     {
-        PhotonNetwork.Instantiate("PlayerPrefab", Vector3.zero, Quaternion.identity);
+        string prefabName = PhotonNetwork.IsMasterClient ? "PlayerL" : "PlayerR";
+        PhotonNetwork.Instantiate(prefabName, Vector3.zero, Quaternion.identity); // self character
     }
 
 
