@@ -7,10 +7,10 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviourPun
 {
-    [SerializeField] private PlayerController playerL;
-    [SerializeField] private PlayerController playerR;
-    public Transform playerLTrans;
-    public Transform playerRTrans;
+    private PlayerController playerL;
+    private PlayerController playerR;
+    private Transform playerLTrans;
+    private Transform playerRTrans;
     public Transform ballTrans;
     [SerializeField] private TextMeshProUGUI ballVelocity;
     [SerializeField] private Rigidbody2D ballRb;
@@ -150,15 +150,34 @@ public class GameManager : MonoBehaviourPun
         if (isGameOver)
             return;
 
+        // if player use immune skill
+        bool isImmune = false;
+        if(isLeftTouched && playerL != null && playerL.photonView.IsMine && playerL.IsImmune())
+            isImmune = true;
+        if(!isLeftTouched && playerR != null &&  playerR.photonView.IsMine && playerR.IsImmune())
+            isImmune = true;
+        if (isImmune)
+            return; // immune scoring one time
+        // end immune skill
+        playerL?.CancelImmunity();
+        playerR?.CancelImmunity();
+
+        // if player use double scoring skill
+        int addScore = 1;
+        if (!isLeftTouched && playerL != null && playerL.IsDoubleScore())   // Left player add
+            addScore = 2;
+        else if (isLeftTouched && playerR != null && playerR.IsDoubleScore())   // Right player add
+            addScore = 2;
+
         if (isLeftTouched)
         {
-            scoreR++;
+            scoreR += addScore;
             scoreTextR.text = scoreR.ToString();
             winLR = true;
         }
         else
         {
-            scoreL++;
+            scoreL += addScore;
             scoreTextL.text = scoreL.ToString();
             winLR = false;
         }
@@ -204,8 +223,13 @@ public class GameManager : MonoBehaviourPun
         // reset players position
         // playerLTrans.position = new Vector3(-6.5f, -4.5f, 0);
         // playerRTrans.position = new Vector3(6.5f, -4.5f, 0);
-        playerL.photonView.RPC("RemoteReset", playerL.photonView.Owner, new Vector3(-6.5f, -4.5f, 0));
-        playerR.photonView.RPC("RemoteReset", playerR.photonView.Owner, new Vector3(6.5f, -4.5f, 0));
+        if (playerL != null && playerL.photonView != null)
+            playerL.photonView.RPC("RemoteReset", playerL.photonView.Owner, new Vector3(-6.5f, -4.5f, 0));
+        if (playerR != null && playerR.photonView != null)
+            playerR.photonView.RPC("RemoteReset", playerR.photonView.Owner, new Vector3(6.5f, -4.5f, 0));
+
+        playerL.SetDoubleScoreSkill(winLR);     // if playerL lose (winLR=true), playerL can use skill
+        playerR.SetDoubleScoreSkill(!winLR);    // if playerR lose (winLR=false), playerR can use skill
 
         // reset ball position
         if (PhotonNetwork.IsMasterClient)
@@ -230,8 +254,10 @@ public class GameManager : MonoBehaviourPun
     private IEnumerator ShowReadyText()
     {
         // player cannot moving
-        playerL.ReadyReset(true);
-        playerR.ReadyReset(true);
+        if (playerL != null)
+            playerL.ReadyReset(true);
+        if (playerR != null)
+            playerR.ReadyReset(true);
 
         float timer = 0f;
         float flashInertval = 0.5f;

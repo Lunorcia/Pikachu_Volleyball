@@ -25,6 +25,16 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
     private Vector3 velocity;
     private float smoothTime = 0.05f;
 
+
+    // immune skill
+    private bool usedImmunity = false;
+    private bool isImmune = false;
+    // double scoring skill
+    private bool canDoubleScore = false;
+    private bool usedDoubleScore = false;
+    private bool isDoubleScore = false;
+    [SerializeField] private float skillDuration = 10f;
+
     [SerializeField] private LayerMask ground;
     [SerializeField] private float speed;
     [SerializeField] private float jumpForce;
@@ -35,7 +45,7 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
     [SerializeField] private float attackPushForce = 10f;
     [SerializeField] private float attackTime = 0.5f;
     [SerializeField] private float score;
-    [SerializeField] private TextMeshProUGUI scoreText;
+    //[SerializeField] private TextMeshProUGUI scoreText;
 
 
     // Start is called before the first frame update
@@ -100,12 +110,28 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
             return;
         }
 
+        
+
         Movement();
 
         // attack
         if (Input.GetKeyDown(KeyCode.Return) && state != State.attack)  // prevent double attack
         {
             StartCoroutine(Attack());
+        }
+
+        // immune skill
+        if (Input.GetKeyDown(KeyCode.J) && !usedImmunity)
+        {
+            usedImmunity = true;
+            photonView.RPC("ActivateImmunitySkill", RpcTarget.All);
+        }
+
+        // double scoring skill
+        if (Input.GetKeyDown(KeyCode.K) && canDoubleScore && !usedDoubleScore)
+        {
+            usedDoubleScore = true;
+            photonView.RPC("ActivateDoubleScoreSkill", RpcTarget.All);
         }
 
         AnimationState();
@@ -230,7 +256,7 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
             ballRb.AddForce(pushDir * attackPushForce, ForceMode2D.Impulse);
 
             // debug 看的 (畫法向量)
-            Debug.DrawRay(contact.point, contact.normal, Color.red, 1.5f);
+            //Debug.DrawRay(contact.point, contact.normal, Color.red, 1.5f);
         }
         else if (contact.normal.y < -0.5f)
         {
@@ -240,7 +266,7 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
             ballRb.AddForce(pushDir * normalPushForce, ForceMode2D.Impulse);
 
             // debug 看的 (畫法向量)
-            Debug.DrawRay(contact.point, contact.normal, Color.green, 1.5f);
+            //Debug.DrawRay(contact.point, contact.normal, Color.green, 1.5f);
         }
         else
         {
@@ -253,7 +279,7 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
             isTouched = true;   // prevent double compensation
         }
 
-
+        /*
         //if (state == State.attack)          // attack to push the ball
         //{
         //    Debug.Log("attack!");
@@ -281,6 +307,7 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
         //    // debug 看的 (畫法向量)
         //    Debug.DrawRay(contact.point, contact.normal, Color.green, 1f);
         //}
+        */
     }
 
     public void ReadyReset(bool isWaiting)
@@ -353,6 +380,27 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
         }
     }
 
+    public bool IsImmune()
+    {
+        return isImmune;
+    }
+
+    public void CancelImmunity()
+    {
+        isImmune = false;
+    }
+
+    public bool IsDoubleScore()
+    {
+        return isDoubleScore;
+    }
+
+    public void SetDoubleScoreSkill(bool isUsable)
+    {
+        canDoubleScore = isUsable;
+    }
+
+
     [PunRPC]
     public void RemoteReset(Vector3 pos)
     {
@@ -377,4 +425,25 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
         if (photonView.IsMine)
             lastReceivedPosition = transform.position; // Sync
     }
+
+    [PunRPC]
+    public void ActivateImmunitySkill()
+    {
+        isImmune = true;
+        StartCoroutine(DisableSkillAfterTime(() => isImmune = false));
+    }
+
+    [PunRPC]
+    public void ActivateDoubleScoreSkill()
+    {
+        isDoubleScore = true;
+        StartCoroutine(DisableSkillAfterTime(() => isDoubleScore = false));
+    }
+
+    public IEnumerator DisableSkillAfterTime(System.Action disableAction)
+    {
+        yield return new WaitForSecondsRealtime(skillDuration);
+        disableAction?.Invoke();
+    }
+
 }
