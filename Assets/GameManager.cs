@@ -19,6 +19,13 @@ public class GameManager : MonoBehaviourPun
     public Color lockedColor = Color.gray;
     public Color availableColor = Color.white;
     public Color activeColor = Color.red;
+    [SerializeField] private Sprite jAvailableSprite;
+    [SerializeField] private Sprite jActiveSprite;
+    [SerializeField] private Sprite jLockedSprite;
+
+    [SerializeField] private Sprite kAvailableSprite;
+    [SerializeField] private Sprite kActiveSprite;
+    [SerializeField] private Sprite kLockedSprite;
 
     private PlayerController playerL;
     private PlayerController playerR;
@@ -155,20 +162,34 @@ public class GameManager : MonoBehaviourPun
     // Update is called once per frame
     void Update()
     {
-        if (ballRb != null && ballVelocity != null)
-        {
-            float speed = ballRb.velocity.magnitude;
-            Vector2 v = ballRb.velocity;
-            ballVelocity.text = "Ball Speed: " + speed.ToString("F2") + "\n" + $"Vx: {v.x:F2}  Vy: {v.y:F2}";
-        }
+        //if (ballRb != null && ballVelocity != null)
+        //{
+        //    float speed = ballRb.velocity.magnitude;
+        //    Vector2 v = ballRb.velocity;
+        //    ballVelocity.text = "Ball Speed: " + speed.ToString("F2") + "\n" + $"Vx: {v.x:F2}  Vy: {v.y:F2}";
+        //}
     }
 
     public void UpdateSkillIcons()
     {
-        skillIconL_J.color = GetColorByState(playerL.skillJ);
-        skillIconL_K.color = GetColorByState(playerL.skillK);
-        skillIconR_J.color = GetColorByState(playerR.skillJ);
-        skillIconR_K.color = GetColorByState(playerR.skillK);
+        //skillIconL_J.color = GetColorByState(playerL.skillJ);
+        //skillIconL_K.color = GetColorByState(playerL.skillK);
+        //skillIconR_J.color = GetColorByState(playerR.skillJ);
+        //skillIconR_K.color = GetColorByState(playerR.skillK);
+        skillIconL_J.sprite = GetSpriteByState(playerL.skillJ, jAvailableSprite, jActiveSprite, jLockedSprite);
+        skillIconL_K.sprite = GetSpriteByState(playerL.skillK, kAvailableSprite, kActiveSprite, kLockedSprite);
+        skillIconR_J.sprite = GetSpriteByState(playerR.skillJ, jAvailableSprite, jActiveSprite, jLockedSprite);
+        skillIconR_K.sprite = GetSpriteByState(playerR.skillK, kAvailableSprite, kActiveSprite, kLockedSprite);
+    }
+
+    private Sprite GetSpriteByState(SkillState state, Sprite available, Sprite active, Sprite locked)
+    {
+        switch (state)
+        {
+            case SkillState.Available: return available;
+            case SkillState.Active: return active;
+            default: return locked;
+        }
     }
 
     Color GetColorByState(SkillState state)
