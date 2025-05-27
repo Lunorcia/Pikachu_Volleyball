@@ -184,6 +184,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f292964e7509e7f49927477428cbbb7d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  skillJ: 0
+  skillK: 0
   skillDuration: 10
   ground:
     serializedVersion: 2
@@ -196,7 +198,6 @@ MonoBehaviour:
   attackPushForce: 60
   attackTime: 0.5
   score: 0
-  scoreText: {fileID: 0}
 --- !u!114 &9168588735069767960
 MonoBehaviour:
   m_ObjectHideFlags: 0

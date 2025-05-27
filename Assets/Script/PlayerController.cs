@@ -20,14 +20,13 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
     private int lastState = -1;
     
     private Vector3 networkPosition;  // smoothing (Sync)
-    private float distanceThreshold = 1.5f;
     private Vector3 lastReceivedPosition;
     private Vector3 velocity;
     private float smoothTime = 0.05f;
 
 
     public enum SkillState { Locked, Available, Active }
-    public SkillState skillJ = SkillState.Locked;
+    public SkillState skillJ = SkillState.Available;
     public SkillState skillK = SkillState.Locked;
 
     // immune skill
@@ -35,9 +34,12 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
     private bool isImmune = false;
     // double scoring skill
     private bool canDoubleScore = false;
-    private bool usedDoubleScore = false;
+    // private bool usedDoubleScore = false; // 時效性1round
     private bool isDoubleScore = false;
     [SerializeField] private float skillDuration = 10f;
+
+    private bool immunityCanceled = false;    // for skillJ cancel handle
+    private bool doubleScoreCanceled = false; // for skillK cancel handle
 
     [SerializeField] private LayerMask ground;
     [SerializeField] private float speed;
@@ -114,7 +116,7 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
             return;
         }
 
-        
+
 
         Movement();
 
@@ -132,9 +134,10 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
         }
 
         // double scoring skill
-        if (Input.GetKeyDown(KeyCode.K) && canDoubleScore && !usedDoubleScore)
+        // if (Input.GetKeyDown(KeyCode.K) && canDoubleScore && !usedDoubleScore)
+        if (Input.GetKeyDown(KeyCode.K) && canDoubleScore)
         {
-            usedDoubleScore = true;
+            // usedDoubleScore = true;
             photonView.RPC("ActivateDoubleScoreSkill", RpcTarget.All);
         }
 
@@ -368,12 +371,16 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
             stream.SendNext(transform.position);
             stream.SendNext((int)state);
             stream.SendNext(isFacingRight);
+            stream.SendNext((int)skillJ);
+            stream.SendNext((int)skillK);
         }
         else
         {
             lastReceivedPosition = (Vector3)stream.ReceiveNext();
             state = (State)(int)stream.ReceiveNext();
             isFacingRight = (bool)stream.ReceiveNext();
+            skillJ = (SkillState)(int)stream.ReceiveNext();
+            skillK = (SkillState)(int)stream.ReceiveNext();
 
             if (!photonView.IsMine)
             {
@@ -381,6 +388,7 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
             }
 
             animator.SetInteger("state", (int)state);
+            GameManager.Instance.UpdateSkillIcons();
         }
     }
 
@@ -394,6 +402,7 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
         isImmune = false;
         skillJ = SkillState.Locked;
         GameManager.Instance.UpdateSkillIcons();
+        immunityCanceled = true;
     }
 
     public bool IsDoubleScore()
@@ -411,6 +420,7 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
         isDoubleScore = false;
         skillK = SkillState.Locked;
         GameManager.Instance.UpdateSkillIcons();
+        doubleScoreCanceled = true;
     }
 
 
@@ -422,7 +432,7 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
 
     public IEnumerator ForceResetPosition(Vector3 pos)
     {
-        yield return null; // 等一幀
+        yield return null; // 等一幀 for Sync
 
         transform.position = pos;
         rigidBody2D.velocity = Vector2.zero;
@@ -435,6 +445,22 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
         isFacingRight = pos.x < 0;
         spriteRenderer.flipX = !isFacingRight;
 
+        immunityCanceled = true;    // cancel skillJ acting
+        isImmune = false;
+        doubleScoreCanceled = true; // cancel skillK acting
+        isDoubleScore = false;
+
+        if (!usedImmunity)  // icon reset
+            skillJ = SkillState.Available;
+        else
+            skillJ = SkillState.Locked;
+
+        if (canDoubleScore)
+            skillK = SkillState.Available;
+        else
+            skillK = SkillState.Locked;
+        GameManager.Instance.UpdateSkillIcons();
+
         if (photonView.IsMine)
             lastReceivedPosition = transform.position; // Sync
     }
@@ -445,9 +471,14 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
         isImmune = true;
         skillJ = SkillState.Active;
         GameManager.Instance.UpdateSkillIcons();
-        StartCoroutine(DisableSkillAfterTime(() => { 
-            isImmune = false;
-            skillJ = SkillState.Locked;
+
+        immunityCanceled = false;
+        StartCoroutine(DisableSkillAfterTime(() => {
+            if (!immunityCanceled)
+            {
+                isImmune = false;
+                skillJ = SkillState.Locked;
+            }            
         }));
     }
 
@@ -457,9 +488,14 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
         isDoubleScore = true;
         skillK = SkillState.Active;
         GameManager.Instance.UpdateSkillIcons();
-        StartCoroutine(DisableSkillAfterTime(() => { 
-            isDoubleScore = false;
-            skillK = SkillState.Locked;
+
+        doubleScoreCanceled = false;
+        StartCoroutine(DisableSkillAfterTime(() => {
+            if (!doubleScoreCanceled)
+            {
+                isDoubleScore = false;
+                skillK = SkillState.Locked;
+            }
         }));
     }
 

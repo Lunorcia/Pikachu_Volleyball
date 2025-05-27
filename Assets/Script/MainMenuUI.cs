@@ -33,9 +33,16 @@ public class MainMenuUI : MonoBehaviour
         mainPanel.SetActive(false);
         matchingPanel.SetActive(true);
         NetworkManager.Instance.isPublicMatch = true;
-        
+
         // start matching
         NetworkManager.Instance.Connect();
+        //if (PhotonNetwork.NetworkClientState != ClientState.JoinedLobby)
+        //{
+        //    NetworkManager.Instance.Connect();
+        //}
+        //else {
+        //    PhotonNetwork.JoinRandomRoom();
+        //}
     }
 
     public void StartPrivateMatch()

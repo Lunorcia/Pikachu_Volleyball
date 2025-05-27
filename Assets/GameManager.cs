@@ -1,9 +1,12 @@
 using Photon.Pun;
+using Photon.Realtime;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using Unity.VisualScripting;
+// using UnityEditor.EditorTools;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using static PlayerController;
 
@@ -39,6 +42,7 @@ public class GameManager : MonoBehaviourPun
     private float resetDelay = 1.5f;
 
     private bool isGameOver = false;
+    private bool isReturning = false; // Sync end game
 
     public static GameManager Instance { get; private set; }
 
@@ -142,6 +146,10 @@ public class GameManager : MonoBehaviourPun
         }
 
         ResetAllPosition();
+
+        playerL.SetDoubleScoreSkill(false); // init skillK
+        playerR.SetDoubleScoreSkill(false);
+        UpdateSkillIcons();
     }
 
     // Update is called once per frame
@@ -178,11 +186,14 @@ public class GameManager : MonoBehaviourPun
         if (isGameOver)
             return;
 
+        if (!PhotonNetwork.IsMasterClient)
+            return;
+
         // if player use immune skill
         bool isImmune = false;
-        if(isLeftTouched && playerL != null && playerL.photonView.IsMine && playerL.IsImmune())
+        if(isLeftTouched && playerL != null && playerL.IsImmune())
             isImmune = true;
-        if(!isLeftTouched && playerR != null &&  playerR.photonView.IsMine && playerR.IsImmune())
+        if(!isLeftTouched && playerR != null &&  playerR.IsImmune())
             isImmune = true;
         if (isImmune)
             return; // immune scoring one time
@@ -346,16 +357,45 @@ public class GameManager : MonoBehaviourPun
         }
     }
 
+    public bool IsGameOver() { return isGameOver; }
+
+    public void OpponentLeftGame()
+    {
+        if (isGameOver) return;
+
+        if (PhotonNetwork.CurrentRoom.PlayerCount == 1) // opponent leave
+        {
+            Debug.Log("[GameManager] 對手斷線");
+            if (playerL != null && playerL.photonView.IsMine)
+                winLR = false;
+            else
+                winLR = true;
+
+            isGameOver = true;      // end the game without sync
+            Time.timeScale = 0f;    // stop game
+            winInfo.SetActive(true);
+            winText.text = winLR ? "PLAYER R WIN!" : "PLAYER L WIN!";
+
+            Debug.Log($"[Photon] GameOver. 當前狀態：{PhotonNetwork.NetworkClientState}");
+            StartCoroutine(ReturnToMenuAfterDelay());
+        }
+    }
+
     // Sync
     [PunRPC]
     public void GameOverRPC(bool winRight)
     {
+        if (isGameOver) return; // avoid repeat
+
         winLR = winRight;
 
         isGameOver = true;
         Time.timeScale = 0f;    // stop game
         winInfo.SetActive(true);
         winText.text = winLR ? "PLAYER R WIN!" : "PLAYER L WIN!";
+
+        if (!isReturning)
+            StartCoroutine(ReturnToMenuAfterDelay());
     }
 
     //private void EndGame()
@@ -364,5 +404,109 @@ public class GameManager : MonoBehaviourPun
     //    Time.timeScale = 0f;    // stop game
     //    winInfo.SetActive(true);
     //    winText.text = winLR ? "PLAYER R WIN!" : "PLAYER L WIN!";
+    //}
+
+    private IEnumerator ReturnToMenuAfterDelay()
+    {
+        if (isReturning)
+        {
+            Debug.LogWarning("已在返回主選單流程 跳過重複呼叫");
+            yield break;
+        }
+
+        isReturning = true;
+        yield return new WaitForSecondsRealtime(3f); // 3秒後回Menu
+
+        // disconnect 有問題
+        //if (PhotonNetwork.IsConnected)
+        //{
+        //    foreach (var go in FindObjectsOfType<GameObject>())
+        //    {
+        //        if (go.GetComponent<PhotonView>() != null)
+        //        {
+        //            Destroy(go);
+        //        }
+        //    }
+
+        //    PhotonNetwork.Disconnect();
+        //    yield return new WaitUntil(() => PhotonNetwork.NetworkClientState == ClientState.Disconnected);
+        //}
+
+        Debug.Log("強制回主選單");
+        if (PhotonNetwork.IsMasterClient)
+            photonView.RPC("RPC_LeaveRoom", RpcTarget.All);
+    }
+
+    [PunRPC]
+    public void RPC_LeaveRoom()
+    {
+        //if (PhotonNetwork.InRoom)
+        //    PhotonNetwork.LeaveRoom();
+        SceneManager.LoadScene("MainPage");
+    }
+
+    //private IEnumerator ReturnToMenuAfterDelay()
+    //{
+    //    if (isReturning)
+    //    {
+    //        Debug.LogWarning("已在返回主選單流程中. 跳過重複呼叫");
+    //        yield break;
+    //    }
+
+    //    isReturning = true;
+    //    yield return new WaitForSecondsRealtime(3f); // 3秒後回Menu
+
+    //    //if (PhotonNetwork.IsConnected)
+    //    //{
+    //    //    foreach (var go in FindObjectsOfType<GameObject>())
+    //    //    {
+    //    //        if (go.GetComponent<PhotonView>() != null)
+    //    //        {
+    //    //            Destroy(go);
+    //    //        }
+    //    //    }
+
+    //    //    PhotonNetwork.Disconnect();
+    //    //    yield return new WaitUntil(() => PhotonNetwork.NetworkClientState == ClientState.Disconnected);
+    //    //}
+
+
+    //    //foreach (var pv in FindObjectsOfType<PhotonView>())
+    //    //{
+    //    //    Destroy(pv.gameObject);
+    //    //}
+
+    //    // NetworkManager.Instance.Disconnect();
+    //    // yield return new WaitUntil(() => PhotonNetwork.NetworkClientState == ClientState.Disconnected);
+    //    // DisconnectPlayers();
+    //    //PhotonNetwork.LeaveRoom();
+    //    //Debug.Log($"[Photon] After Disconnect(), current state: {PhotonNetwork.NetworkClientState}");
+
+    //    SceneManager.LoadScene("MainPage");
+    //}
+
+    //public void DisconnectPlayers()
+    //{
+    //    StartCoroutine(DisconnectAndLoad());
+    //    Destroy(Instance.gameObject);
+    //}
+
+    //private IEnumerator DisconnectAndLoad()
+    //{
+    //    PhotonNetwork.AutomaticallySyncScene = false;
+
+    //    if (PhotonNetwork.InRoom)
+    //    {
+    //        PhotonNetwork.LeaveRoom();
+    //        while (PhotonNetwork.InRoom)
+    //            yield return null;
+    //    }
+
+    //    NetworkManager.Instance.Disconnect();
+    //    PhotonNetwork.NetworkingClient = null;
+    //    while (PhotonNetwork.IsConnected)
+    //        yield return null;
+
+    //    SceneManager.LoadScene("MainPage");
     //}
 }

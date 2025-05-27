@@ -121,6 +121,24 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         PhotonNetwork.Instantiate(prefabName, Vector3.zero, Quaternion.identity); // self character
     }
 
+    public override void OnLeftRoom()
+    {
+        Debug.Log("Left room");
+        Debug.Log("成功離開房間，現在可以重新加入");
+        SceneManager.LoadScene("MainPage");
+    }
+
+    public override void OnPlayerLeftRoom(Player otherPlayer)
+    {
+        if (SceneManager.GetActiveScene().name == "GameScene" && GameManager.Instance != null)
+        {
+            if (!GameManager.Instance.IsGameOver())
+            {
+                Debug.Log($"Player {otherPlayer.NickName} 斷線離開房間"); // opponent leave
+                GameManager.Instance.OpponentLeftGame();
+            }
+        }
+    }
 
     // Update is called once per frame
     void Update()
