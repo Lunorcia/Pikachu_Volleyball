@@ -4,9 +4,19 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UI;
+using static PlayerController;
 
 public class GameManager : MonoBehaviourPun
 {
+    public Image skillIconL_J;
+    public Image skillIconL_K;
+    public Image skillIconR_J;
+    public Image skillIconR_K;
+    public Color lockedColor = Color.gray;
+    public Color availableColor = Color.white;
+    public Color activeColor = Color.red;
+
     private PlayerController playerL;
     private PlayerController playerR;
     private Transform playerLTrans;
@@ -145,6 +155,24 @@ public class GameManager : MonoBehaviourPun
         }
     }
 
+    public void UpdateSkillIcons()
+    {
+        skillIconL_J.color = GetColorByState(playerL.skillJ);
+        skillIconL_K.color = GetColorByState(playerL.skillK);
+        skillIconR_J.color = GetColorByState(playerR.skillJ);
+        skillIconR_K.color = GetColorByState(playerR.skillK);
+    }
+
+    Color GetColorByState(SkillState state)
+    {
+        switch (state)
+        {
+            case SkillState.Available: return availableColor;
+            case SkillState.Active: return activeColor;
+            default: return lockedColor;
+        }
+    }
+
     public void AddScore(bool isLeftTouched)
     {        
         if (isGameOver)
@@ -181,6 +209,17 @@ public class GameManager : MonoBehaviourPun
             scoreTextL.text = scoreL.ToString();
             winLR = false;
         }
+
+        // end double scoring skill after scoring
+        if (playerL != null && playerL.IsDoubleScore())
+        {
+            playerL.CancelDoubleScore();
+        }
+        if (playerR != null && playerR.IsDoubleScore())
+        {
+            playerR.CancelDoubleScore();
+        }
+
         photonView.RPC("SyncScoreAndReset", RpcTarget.All, scoreL, scoreR, winLR); // Sync
     }
 
@@ -230,6 +269,7 @@ public class GameManager : MonoBehaviourPun
 
         playerL.SetDoubleScoreSkill(winLR);     // if playerL lose (winLR=true), playerL can use skill
         playerR.SetDoubleScoreSkill(!winLR);    // if playerR lose (winLR=false), playerR can use skill
+        UpdateSkillIcons();
 
         // reset ball position
         if (PhotonNetwork.IsMasterClient)

@@ -26,6 +26,10 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
     private float smoothTime = 0.05f;
 
 
+    public enum SkillState { Locked, Available, Active }
+    public SkillState skillJ = SkillState.Locked;
+    public SkillState skillK = SkillState.Locked;
+
     // immune skill
     private bool usedImmunity = false;
     private bool isImmune = false;
@@ -388,6 +392,8 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
     public void CancelImmunity()
     {
         isImmune = false;
+        skillJ = SkillState.Locked;
+        GameManager.Instance.UpdateSkillIcons();
     }
 
     public bool IsDoubleScore()
@@ -398,6 +404,13 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
     public void SetDoubleScoreSkill(bool isUsable)
     {
         canDoubleScore = isUsable;
+    }
+
+    public void CancelDoubleScore()
+    {
+        isDoubleScore = false;
+        skillK = SkillState.Locked;
+        GameManager.Instance.UpdateSkillIcons();
     }
 
 
@@ -430,20 +443,31 @@ public class PlayerController : MonoBehaviourPun, IPunObservable
     public void ActivateImmunitySkill()
     {
         isImmune = true;
-        StartCoroutine(DisableSkillAfterTime(() => isImmune = false));
+        skillJ = SkillState.Active;
+        GameManager.Instance.UpdateSkillIcons();
+        StartCoroutine(DisableSkillAfterTime(() => { 
+            isImmune = false;
+            skillJ = SkillState.Locked;
+        }));
     }
 
     [PunRPC]
     public void ActivateDoubleScoreSkill()
     {
         isDoubleScore = true;
-        StartCoroutine(DisableSkillAfterTime(() => isDoubleScore = false));
+        skillK = SkillState.Active;
+        GameManager.Instance.UpdateSkillIcons();
+        StartCoroutine(DisableSkillAfterTime(() => { 
+            isDoubleScore = false;
+            skillK = SkillState.Locked;
+        }));
     }
 
     public IEnumerator DisableSkillAfterTime(System.Action disableAction)
     {
         yield return new WaitForSecondsRealtime(skillDuration);
         disableAction?.Invoke();
+        GameManager.Instance.UpdateSkillIcons();
     }
 
 }
